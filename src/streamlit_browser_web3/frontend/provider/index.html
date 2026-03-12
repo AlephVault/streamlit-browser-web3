@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Awesome Crypto Browser Provider</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 1px;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      #mount {
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mount" aria-hidden="true"></div>
+    <script>
+      const Streamlit = {
+        setComponentReady() {
+          window.parent.postMessage(
+            { isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1 },
+            "*",
+          )
+        },
+        setFrameHeight(height) {
+          window.parent.postMessage(
+            { isStreamlitMessage: true, type: "streamlit:setFrameHeight", height },
+            "*",
+          )
+        },
+        setComponentValue(value) {
+          window.parent.postMessage(
+            { isStreamlitMessage: true, type: "streamlit:setComponentValue", value },
+            "*",
+          )
+        },
+      }
+
+      const state = {
+        snapshot: {
+          providerAvailable: false,
+          connected: false,
+          accounts: [],
+          chainIdHex: null,
+          chainIdDecimal: null,
+        },
+        error: null,
+        lastActionResult: null,
+        requestResults: {},
+        handledActionNonce: null,
+        handledRequestIds: new Set(),
+        activeInteractiveRequestId: null,
+        listenersAttached: false,
+      }
+
+      function publish() {
+        Streamlit.setComponentValue({
+          snapshot: state.snapshot,
+          error: state.error,
+          lastActionResult: state.lastActionResult,
+          requestResults: state.requestResults,
+        })
+      }
+
+      function resize() {
+        Streamlit.setFrameHeight(1)
+      }
+
+      async function syncSnapshot() {
+        state.snapshot.providerAvailable = Boolean(window.ethereum)
+        if (!window.ethereum) {
+          state.snapshot.connected = false
+          state.snapshot.accounts = []
+          state.snapshot.chainIdHex = null
+          state.snapshot.chainIdDecimal = null
+          state.error = "window.ethereum is not available."
+          publish()
+          return
+        }
+
+        try {
+          const [accounts, chainIdHex] = await Promise.all([
+            window.ethereum.request({ method: "eth_accounts" }),
+            window.ethereum.request({ method: "eth_chainId" }),
+          ])
+          state.snapshot.accounts = accounts || []
+          state.snapshot.connected = state.snapshot.accounts.length > 0
+          state.snapshot.chainIdHex = chainIdHex || null
+          state.snapshot.chainIdDecimal = chainIdHex ? parseInt(chainIdHex, 16) : null
+          state.error = null
+        } catch (error) {
+          state.error = error.message || String(error)
+        }
+
+        publish()
+      }
+
+      async function handleAction(action) {
+        if (!action || !action.action || state.handledActionNonce === action.nonce) {
+          return
+        }
+        state.handledActionNonce = action.nonce
+
+        if (!window.ethereum) {
+          state.lastActionResult = {
+            nonce: action.nonce,
+            action: action.action,
+            status: "error",
+            error: "window.ethereum is not available.",
+          }
+          publish()
+          return
+        }
+
+        try {
+          if (action.action === "connect") {
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
+            state.lastActionResult = {
+              nonce: action.nonce,
+              action: action.action,
+              status: "success",
+              result: accounts || [],
+            }
+          } else if (action.action === "disconnect") {
+            await window.ethereum.request({
+              method: "wallet_revokePermissions",
+              params: [{ eth_accounts: {} }],
+            })
+            state.lastActionResult = {
+              nonce: action.nonce,
+              action: action.action,
+              status: "success",
+              result: true,
+            }
+          } else {
+            state.lastActionResult = {
+              nonce: action.nonce,
+              action: action.action,
+              status: "error",
+              error: `Unsupported action: ${action.action}`,
+            }
+          }
+        } catch (error) {
+          state.lastActionResult = {
+            nonce: action.nonce,
+            action: action.action,
+            status: "error",
+            error: error.message || String(error),
+          }
+          state.error = state.lastActionResult.error
+        }
+
+        await syncSnapshot()
+      }
+
+      async function executeRequest(request) {
+        if (!request || !request.method || state.handledRequestIds.has(request.requestId)) {
+          return
+        }
+        state.handledRequestIds.add(request.requestId)
+
+        if (!window.ethereum) {
+          state.requestResults[String(request.requestId)] = {
+            requestId: request.requestId,
+            method: request.method,
+            status: "error",
+            error: "window.ethereum is not available.",
+          }
+          publish()
+          return
+        }
+
+        try {
+          const result = await window.ethereum.request({
+            method: request.method,
+            params: request.params || [],
+          })
+          state.requestResults[String(request.requestId)] = {
+            requestId: request.requestId,
+            method: request.method,
+            status: "success",
+            result: result,
+          }
+          state.error = null
+        } catch (error) {
+          state.requestResults[String(request.requestId)] = {
+            requestId: request.requestId,
+            method: request.method,
+            status: "error",
+            error: error.message || String(error),
+            code: typeof error.code === "number" ? error.code : -32000,
+          }
+          state.error = state.requestResults[String(request.requestId)].error
+        }
+
+        publish()
+      }
+
+      async function handleRequests(requests) {
+        const requestList = Array.isArray(requests) ? requests : []
+        const readRequests = []
+
+        for (const request of requestList) {
+          if (!request || !request.method || state.handledRequestIds.has(request.requestId)) {
+            continue
+          }
+          if (request.interactive) {
+            if (state.activeInteractiveRequestId !== null) {
+              continue
+            }
+            state.activeInteractiveRequestId = request.requestId
+            try {
+              await executeRequest(request)
+            } finally {
+              state.activeInteractiveRequestId = null
+            }
+          } else {
+            readRequests.push(executeRequest(request))
+          }
+        }
+
+        if (readRequests.length > 0) {
+          await Promise.all(readRequests)
+        }
+      }
+
+      function attachListeners() {
+        if (state.listenersAttached || !window.ethereum) {
+          return
+        }
+
+        state.listenersAttached = true
+
+        window.ethereum.on("accountsChanged", async (accounts) => {
+          state.snapshot.accounts = accounts || []
+          state.snapshot.connected = state.snapshot.accounts.length > 0
+          publish()
+        })
+
+        window.ethereum.on("chainChanged", async (chainIdHex) => {
+          state.snapshot.chainIdHex = chainIdHex || null
+          state.snapshot.chainIdDecimal = chainIdHex ? parseInt(chainIdHex, 16) : null
+          publish()
+        })
+
+        window.ethereum.on("connect", async () => {
+          await syncSnapshot()
+        })
+
+        window.ethereum.on("disconnect", async (error) => {
+          state.error = error && error.message ? error.message : null
+          await syncSnapshot()
+        })
+      }
+
+      window.addEventListener("message", async (event) => {
+        if (!event.data || event.data.type !== "streamlit:render") {
+          return
+        }
+
+        const args = event.data.args || {}
+        attachListeners()
+        await syncSnapshot()
+        await handleAction(args.action || null)
+        await handleRequests(args.requests || [])
+        resize()
+      })
+
+      Streamlit.setComponentReady()
+      attachListeners()
+      resize()
+      syncSnapshot()
+    </script>
+  </body>
+</html>
