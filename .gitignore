@@ -3,6 +3,8 @@ __pycache__/
 
 build/
 dist/
+venv/
+.venv/
 *.egg-info/
 pip-wheel-metadata/
 examples/__pycache__/

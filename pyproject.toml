@@ -24,8 +24,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/luismasuelli/streamlit-browser-web3"
-Repository = "https://github.com/luismasuelli/streamlit-browser-web3"
+Homepage = "https://github.com/AlephVault/streamlit-browser-web3"
+Repository = "https://github.com/AlephVault/streamlit-browser-web3"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
