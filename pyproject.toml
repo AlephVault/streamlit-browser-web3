@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "streamlit-browser-web3"
-version = "0.1.0"
+version = "0.1.1"
 description = "Streamlit components and helpers for browser-injected EIP-1193 provider utility."
 readme = "README.md"
 requires-python = ">=3.10"
