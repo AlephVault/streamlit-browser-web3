@@ -11,7 +11,7 @@ from evm import (
     inspect_erc20,
     parse_address,
 )
-from streamlit_web3 import wallet_get
+from streamlit_browser_web3 import wallet_get
 
 
 st.set_page_config(page_title="streamlit-web3 demo", page_icon=":material/account_balance_wallet:")

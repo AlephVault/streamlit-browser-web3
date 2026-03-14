@@ -8,7 +8,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 
-with as_file(files("streamlit_web3").joinpath("frontend/provider")) as _component_root:
+with as_file(files("streamlit_browser_web3").joinpath("frontend/provider")) as _component_root:
     _wallet_component = components.declare_component(
         "streamlit_browser_web3_wallet_component",
         path=str(_component_root),
@@ -69,7 +69,7 @@ _STATE_DEFAULTS: dict[str, Any] = {
 
 
 def _namespace(key: str) -> str:
-    return f"streamlit_web3:{key}"
+    return f"streamlit_browser_web3:{key}"
 
 
 def _state_get(key: str) -> dict[str, Any]:
@@ -372,7 +372,7 @@ def wallet_get() -> WalletHandler:
     key = "__handler__"
     state = _state_get(key)
     component_value = _wallet_component(
-        key=f"streamlit_web3_wallet_component:{key}",
+        key=f"streamlit_browser_web3_wallet_component:{key}",
         default={},
         action=state.get("pending_action"),
         requests=_pending_requests_payload(state),

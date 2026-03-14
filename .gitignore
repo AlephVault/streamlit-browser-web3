@@ -8,5 +8,5 @@ venv/
 *.egg-info/
 pip-wheel-metadata/
 examples/__pycache__/
-src/streamlit_web3/__pycache__/
-src/streamlit_web3/streamlit/__pycache__/
+src/streamlit_browser_web3/__pycache__/
+src/streamlit_browser_web3/streamlit/__pycache__/
