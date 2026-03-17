@@ -58,6 +58,7 @@ Chain metadata and ERC-20 helper code are intentionally kept in the example app,
 - `handler.connect()`: Starts the wallet connection flow and reruns the Streamlit script.
 - `handler.disconnect()`: Starts the wallet disconnect flow and reruns the Streamlit script.
 - `handler.request(method, params=None, *, key)`: Sends an EIP-1193 request and returns `(status, result)`.
+- `handler.get_request_status(key)`: Returns the current status of a given request, or `None` if it does not exist.
 - `handler.forget(key)`: Removes a tracked request so the same key can be reused for a new flow.
 - `handler.snapshot_view()`: Returns a typed `WalletSnapshot` dataclass with the main handler fields.
 

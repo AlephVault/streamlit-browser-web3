@@ -322,6 +322,16 @@ class WalletHandler:
         self._state[counter_name] = int(self._state.get(counter_name, 0)) + 1
         return self._state[counter_name]
 
+    def get_request_status(self, key: str) -> str:
+        """
+        Returns the status of an existing request, or None if it does not exist.
+        :param key: The key of the request to check.
+        :return: None, "pending", "error" or "success".
+        """
+
+        slot = self._state["requests"].get(key)
+        return slot and slot["status"]
+
 
 def _sync_component_value(state: dict[str, Any], component_value: dict[str, Any]) -> None:
     if not isinstance(component_value, dict):
