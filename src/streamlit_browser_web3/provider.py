@@ -3,7 +3,7 @@ import json
 import time
 from dataclasses import dataclass
 from importlib.resources import as_file, files
-from typing import Any
+from typing import Any, Tuple
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -322,15 +322,23 @@ class WalletHandler:
         self._state[counter_name] = int(self._state.get(counter_name, 0)) + 1
         return self._state[counter_name]
 
-    def get_request_status(self, key: str) -> str:
+    def get_request_status(self, key: str) -> Tuple[str, any] | None:
         """
         Returns the status of an existing request, or None if it does not exist.
         :param key: The key of the request to check.
-        :return: None, "pending", "error" or "success".
+        :return: None, ("pending", None), ("error", error) or ("success", result).
         """
 
         slot = self._state["requests"].get(key)
-        return slot and slot["status"]
+        if not slot:
+            return None
+        extra = None
+        status = slot["status"]
+        if status == "success":
+            extra = slot["result"]
+        elif status == "error":
+            extra = slot["error"]
+        return slot and (status, extra)
 
 
 def _sync_component_value(state: dict[str, Any], component_value: dict[str, Any]) -> None:
